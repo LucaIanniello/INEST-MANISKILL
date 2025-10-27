@@ -30,32 +30,37 @@ import yaml
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("pretrained_path", None, "Path to pretraining experiment.")
-flags.DEFINE_list("seeds", [0, 5], "List specifying the range of seeds to run.")
+flags.DEFINE_integer("seed", 12, "Seed to run.")
 flags.DEFINE_string("device", "cuda:0", "The compute device.")
 flags.DEFINE_boolean("wandb", False, "Log on W&B.")
+flags.DEFINE_string("algo", "inest", "The RL algorithm to use.")
 
 
 def main(_):
   
   with open(os.path.join(FLAGS.pretrained_path, "metadata.yaml"), "r") as fp:
     kwargs = yaml.load(fp, Loader=yaml.FullLoader)
-
-
-  # if kwargs["algo"] == "goal_classifier":
-  #   reward_type = "goal_classifier"
-  # elif kwargs["algo"] == "holdr":
-  #     reward_type = "holdr"    
-  # elif kwargs["algo"] == "reds":
-  #   reward_type = "reds"
-  # else:
-  #   reward_type = "distance_to_goal"
-
+ 
+    
+  if FLAGS.algo == "inest":
+    reward_type = "inest"
+  elif FLAGS.algo == "inest_knn":
+    reward_type = "inest_knn"
+  elif FLAGS.algo == "state_intrinsic":
+    reward_type = "state_intrinsic"
+  elif FLAGS.algo == "reds":
+    reward_type = "reds"
+  elif FLAGS.algo == "goal_classifier":
+    reward_type = "goal_classifier"
+  elif FLAGS.algo == "distance_to_goal":
+    reward_type = "distance_to_goal"
+  else:
+    reward_type = "inest"
+ 
   # Map the embodiment to the x-MAGICAL env name.
-  reward_type = "holdr"  
-  
   env_name = XMAGICAL_EMBODIMENT_TO_ENV_NAME[kwargs["embodiment"]]
 
-  # # Generate a unique experiment name.
+  # Generate a unique experiment name.
   # experiment_name = string_from_kwargs(
   #     env_name=env_name,
   #     reward="learned",
@@ -65,39 +70,34 @@ def main(_):
   #     uid=unique_id(),
   # )
   
-  experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=learned_reward_type=holdr_mode=same_algo=xirl_uid=72b1413d-4f7c-48f3-ae75-2afd2832381f"
+  # To use a existing experiment name, uncomment below and comment above.
+  # It must be followed by the RESUME entry in the subprocess call.
+  experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=learned_reward_type=holdr_mode=same_algo=xirl_uid=ef3eede2-80d6-465a-bda9-1c4bcbc01209"
   logging.info("Experiment name: %s", experiment_name)
 
   # Execute each seed in parallel.
-  procs = []
-  for seed in range(*list(map(int, FLAGS.seeds))):
-    procs.append(
-        subprocess.Popen([  # pylint: disable=consider-using-with
-            "python",
-            "train_policy.py",
-            "--experiment_name",
-            experiment_name,
-            "--env_name",
-            f"{env_name}",
-            "--config",
-            f"configs/xmagical/rl/env_reward.py:{kwargs['embodiment']}",
-            "--config.reward_wrapper.pretrained_path",
-            f"{FLAGS.pretrained_path}",
-            "--config.reward_wrapper.type",
-            f"{reward_type}",
-            "--seed",
-            f"{42}",
-            "--device",
-            f"{FLAGS.device}",
-            "--wandb",
-            f"{False}",
-            "--resume",
-            f"{True}"
-        ]))
-
-  # Wait for each seed to terminate.
-  for p in procs:
-    p.wait()
+  subprocess.Popen([  # pylint: disable=consider-using-with
+    "python",
+    "train_policy.py",
+    "--experiment_name",
+    experiment_name,
+    "--env_name",
+    f"{env_name}",
+    "--config",
+    f"configs/xmagical/rl/env_reward.py:{kwargs['embodiment']}",
+    "--config.reward_wrapper.pretrained_path",
+    f"{FLAGS.pretrained_path}",
+    "--config.reward_wrapper.type",
+    f"{reward_type}",
+    "--seed",
+    f"{FLAGS.seed}",
+    "--device",
+    f"{FLAGS.device}",
+    "--wandb",
+    f"{FLAGS.wandb}",
+    "--resume",
+    f"{True}"
+  ])
 
 
 if __name__ == "__main__":

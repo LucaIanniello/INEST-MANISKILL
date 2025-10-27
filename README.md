@@ -51,13 +51,11 @@ We use Python 3.8 and [Miniconda](https://docs.conda.io/en/latest/miniconda.html
 
 ```bash
 # Clone and cd into xirl.
-git clone git@github.com:google-research/google-research.git --depth=1
-cd google-research/xirl
+git clone https://github.com/LucaIanniello/INEST-IRL
 
 # Create and activate environment.
-conda create -n xirl python=3.8
-conda activate xirl
-
+conda create -n xirl_clone python=3.8
+conda activate xirl_clone
 # Install dependencies.
 pip install -r requirements.txt
 ```
@@ -73,10 +71,6 @@ bash scripts/download_xmagical_dataset.sh
 ```
 
 The dataset will be located in `/tmp/xirl/datasets/xmagical`. You are free to modify the save destination, just make sure you update `config.data.root` in the pretraining config file &mdash; see `base_configs/pretrain.py`.
-
-**X-REAL**
-
-Our real-world dataset X-REAL will be released as soon as it gets approval, stay tuned!
 
 ## Code Navigation
 
@@ -113,33 +107,13 @@ The rest of the codebase is organized as follows:
 - [x] Quick n' dirty multi-GPU RL training
     - [x] With environment reward: `bash scripts/launch_rl_multi_gpu.sh`
 
-## Extending XIRL
+## Experiment Setup
 
-> How can I implement my own self-supervised pretraining algorithm?
+Refer to `xirl_training.sh` for example experiment setups for pretraining and RL training.
+The file to be edited are the following:
+- 'xirl_training.sh': contains the commands to run the experiments.
+- 'rl_xmagical_learned_reward.py': contains the RL script that executes the training with learned reward. In this file, you can set the algorithm to be used for training (distance_to_goal, goal_classifier, inest, inest_knn, state_intrinsic, reds) and the possibility to resume from an existing experiment. 
+- 'train_policy.py': contains the RL training loop. Here you can modify the wandb metrics and parameters.
+- 'rl.py': contains the base config for RL experiments. Here you can set the default algorithm for training and the path of the pretraining model to be used.
 
-You'll want to inherit from `xirl.trainers.base.Trainer` and implement the `__init__` and `compute_loss` methods. For reference, take a look at `xirl/trainers/tcc.py` to see how Temporal Cycle Consistency is implemented. Make sure to add your new algorithm to the `TRAINERS` dict in `factory.py`.
-
-> How do I modify the way frames are sampled in the dataloader?
-
-Create your own sampler in `xirl/frame_samplers.py` and add it to the `FRAME_SAMPLERS` dict in `factory.py`.
-
-> How can I implement additional pretraining evaluation metrics?
-
-You'll want to inherit from `xirl.evaluators.base.Evaluator` class and as you guessed, add it to the `EVALUATORS` dict in `factory.py`. See `xirl/evaluators` for our current list of qualitative and quantitative evaluation metrics
-
-## Acknowledgments
-
-Many people have contibuted one way or another in the making and shaping of this repository. In no particular order, we'd like to thank [Alex Nichol](https://aqnichol.com/), [Nick Hynes](https://www.linkedin.com/in/nhynes-), [Brent Yi](https://brentyi.com/), [Jimmy Wu](https://www.cs.princeton.edu/~jw60/) and [Sam Toyer](https://scholar.google.com.au/citations?user=J8E8GQYAAAAJ&hl=en) for their fruitful back-and-forth discussions.
-
-## Citation
-
-If you find this code useful, consider citing our work:
-
-```bibtex
-@inproceedings{zakka2021xirl,
-  author    = {Zakka, Kevin and Zeng, Andy and Florence, Pete and Tompson, Jonathan and Bohg, Jeannette and Dwibedi, Debidatta},
-  title     = {XIRL: Cross-embodiment Inverse Reinforcement Learning},
-  booktitle = {Proceedings of the 5th Conference on Robot Learning (CoRL)},
-  year      = {2021},
-}
-```
+For the pretraining phase, the type of algorithm used for the inest pretraining is the xirl model. 
