@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=NewEnvTest_pyramid_12
+#SBATCH --job-name=Stack_Pyramid_42
 #SBATCH --ntasks=1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=s327313@studenti.polito.it
-#SBATCH --output=NewEnvTest_pyramid_12.log
+#SBATCH --output=stack_pyramid_42.log
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu_a40
 #SBATCH --cpus-per-task=24
@@ -13,10 +13,11 @@
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate xirl_py39
-cd xirl_conda
+
+echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 
 
-$PORT=$((29000 + SLURM_JOB_ID % 1000))
+PORT=$((29000 + SLURM_JOB_ID % 1000))
 
 # Remap CUDA_VISIBLE_DEVICES to match SLURM allocation
 # export CUDA_VISIBLE_DEVICES=1,2
@@ -40,8 +41,14 @@ $PORT=$((29000 + SLURM_JOB_ID % 1000))
 #   --wandb \
 #   --algo inest
 
+python test.py
+
 # Execution code for ENVIRONMENTAL REWARD 
 python rl_xmagical_env_reward.py --embodiment gripper --seeds 1 --wandb
+
+# ENV_ID="StackPyramid-v1"
+
+# python -m mani_skill.utils.download_demo ${ENV_ID}
 
 # Pretraining command
 # python pretrain_xmagical_same_embodiment.py --embodiment gripper --algo xirl --unique_name --wandb

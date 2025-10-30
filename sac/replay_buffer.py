@@ -41,6 +41,7 @@ class ReplayBuffer:
   def __init__(
       self,
       obs_shape,
+      next_obs_shape,
       action_shape,
       capacity,
       device,
@@ -61,7 +62,7 @@ class ReplayBuffer:
     # we should use float32 for the buffer as well
     obs_dtype = np.float32
     self.obses = self._empty_arr(obs_shape, obs_dtype)
-    self.next_obses = self._empty_arr(obs_shape, obs_dtype)
+    self.next_obses = self._empty_arr(next_obs_shape, obs_dtype)
     self.actions = self._empty_arr(action_shape, np.float32)
     self.rewards = self._empty_arr((1,), np.float32)
     self.masks = self._empty_arr((1,), np.float32)

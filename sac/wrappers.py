@@ -22,7 +22,7 @@ import time
 import typing
 
 import cv2
-import gym
+import gymnasium as gym
 import imageio
 import numpy as np
 import torch
@@ -67,20 +67,43 @@ class FrameStack(gym.Wrapper):
         dtype=env.observation_space.dtype,
     )
 
-  def reset(self):
+  def reset(self, *, seed=None, options=None):
+    """Reset the environment and stack the initial observation."""
+    # Set the seed if provided
+    if seed is not None:
+        if hasattr(self.env, 'set_seed'):
+            self.env.set_seed(seed)
+        else:
+            print("Warning: Environment does not support seeding.")
+
+    # Call the underlying environment's reset method
     obs = self.env.reset()
+
+    # Stack the initial observation
     for _ in range(self._k):
-      self._frames.append(obs)
+        self._frames.append(obs)
     return self._get_obs()
 
   def step(self, action):
-    obs, reward, done, info = self.env.step(action)
+    result = self.env.step(action)
+    if len(result) == 5:
+        obs, reward, done, truncated, info = result
+        done = done or truncated
+    else:
+        obs, reward, done, info = result
     self._frames.append(obs)
     return self._get_obs(), reward, done, info
 
   def _get_obs(self):
     assert len(self._frames) == self._k
-    return np.concatenate(list(self._frames), axis=0)
+    # Convert frames to numpy arrays if they are torch tensors
+    numpy_frames = []
+    for frame in self._frames:
+        # Use the same flatten_observation function that handles nested structures
+        from utils import flatten_observation
+        flattened_frame = flatten_observation(frame)
+        numpy_frames.append(flattened_frame)
+    return np.concatenate(numpy_frames, axis=0)
 
 
 class ActionRepeat(gym.Wrapper):
@@ -105,7 +128,12 @@ class ActionRepeat(gym.Wrapper):
   def step(self, action):
     total_reward = 0.0
     for _ in range(self._repeat):
-      obs, rew, done, info = self.env.step(action)
+      result = self.env.step(action)
+      if len(result) == 5:
+            obs, rew, done, truncated, info = result
+            done = done or truncated
+      else:
+            obs, rew, done, info = result
       total_reward += rew
       if done:
         break
@@ -127,7 +155,12 @@ class RewardScale(gym.Wrapper):
     self._scale = scale
 
   def step(self, action):
-    obs, reward, done, info = self.env.step(action)
+    result = self.env.step(action)
+    if len(result) == 5:
+        obs, reward, done, truncated, info = result
+        done = done or truncated
+    else:
+        obs, reward, done, info = result
     reward *= self._scale
     return obs, reward, done, info
 
@@ -154,7 +187,12 @@ class EpisodeMonitor(gym.ActionWrapper):
     self.start_time = time.time()
 
   def step(self, action):
-    obs, rew, done, info = self.env.step(action)
+    result = self.env.step(action)
+    if len(result) == 5:
+        obs, rew, terminated, truncated, info = result
+        done = terminated or truncated
+    else:
+        obs, rew, done, info = result
 
     self.reward_sum += rew
     self.episode_length += 1
@@ -169,8 +207,18 @@ class EpisodeMonitor(gym.ActionWrapper):
 
     return obs, rew, done, info
 
-  def reset(self):
+  def reset(self, *, seed=None, options=None):
+    """Reset the environment and monitor episode metrics."""
     self._reset_stats()
+
+    # Set the seed if provided
+    if seed is not None:
+        if hasattr(self.env, 'set_seed'):
+            self.env.set_seed(seed)
+        else:
+            print("Warning: Environment does not support seeding.")
+
+    # Call the underlying environment's reset method
     return self.env.reset()
 
 
@@ -199,7 +247,7 @@ class VideoRecorder(gym.Wrapper):
     self.frames = []
 
   def step(self, action):
-    frame = self.env.render(mode="rgb_array")
+    frame = self.env.render()
     if frame.shape[:2] != (self.height, self.width):
       frame = cv2.resize(
           frame,
@@ -207,7 +255,13 @@ class VideoRecorder(gym.Wrapper):
           interpolation=cv2.INTER_CUBIC,
       )
     self.frames.append(frame)
-    observation, reward, done, info = self.env.step(action)
+    result = self.env.step(action)
+    if len(result) == 5:
+          observation, reward, terminated, truncated, info = result
+          done = terminated or truncated
+    else:
+          observation, reward, done, info = result
+
     if done:
       filename = os.path.join(self.save_dir, f"{self.current_episode}.mp4")
       imageio.mimsave(filename, self.frames, fps=self.fps)
@@ -279,7 +333,12 @@ class LearnedVisualReward(abc.ABC, gym.Wrapper):
     """Forward the pixels through the model and compute the reward."""
 
   def step(self, action):
-    obs, env_reward, done, info = self.env.step(action)
+    result = self.env.step(action)
+    if len(result) == 5:
+          obs, env_reward, terminated, truncated, info = result
+          done = terminated or truncated
+    else:
+          obs, env_reward, done, info = result
     # We'll keep the original env reward in the info dict in case the user would
     # like to use it in conjunction with the learned reward.
     info["env_reward"] = env_reward

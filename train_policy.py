@@ -41,6 +41,8 @@ import wandb
 
 import os
 import json
+import inspect
+from types import MethodType
 
 import time
 
@@ -60,6 +62,84 @@ config_flags.DEFINE_config_file(
     "base_configs/rl.py",
     "File path to the training hyperparameter configuration.",
 )
+
+
+def safe_render(env, mode="rgb_array", **kwargs):
+    """Call env.render safely, handling signature mismatches between Gym and ManiSkill wrappers.
+    
+    Some ManiSkill wrappers implement render(self) while Gym expects render(self, mode, **kwargs).
+    This function tries both calling conventions and returns the result.
+    """
+    try:
+        # Try Gym convention first (with mode)
+        return env.render(mode=mode, **kwargs)
+    except TypeError as e:
+        if "positional argument" in str(e) or "unexpected keyword argument" in str(e):
+            # Fallback to ManiSkill convention (no args)
+            try:
+                return env.render()
+            except Exception:
+                # If both fail, re-raise the original error
+                raise e
+        else:
+            # Re-raise non-signature related errors
+            raise e
+
+
+def patch_env_render_compatibility(env):
+    """Automatically patch any wrapper in the env chain that has render signature mismatch.
+    
+    This finds wrappers with render(self) signature and replaces them with compatibility
+    wrappers that accept mode and **kwargs but call the underlying no-arg render.
+    """
+    def make_compatible_render(original_render):
+        """Create a compatible render method from an incompatible one."""
+        def compatible_render(self, mode="rgb_array", **kwargs):
+            try:
+                # First try to call original with mode (in case it was updated)
+                sig = inspect.signature(original_render)
+                if "mode" in sig.parameters or len(sig.parameters) > 1:
+                    return original_render(mode=mode, **kwargs)
+                else:
+                    # Original only accepts self, call without args
+                    return original_render()
+            except TypeError:
+                # Fallback to no-args call
+                return original_render()
+        return compatible_render
+    
+    # Walk the wrapper chain and patch incompatible render methods
+    current_env = env
+    patched_count = 0
+    
+    while current_env is not None:
+        render_method = getattr(current_env, 'render', None)
+        if render_method is not None:
+            try:
+                sig = inspect.signature(render_method)
+                params = list(sig.parameters.keys())
+                
+                # Check if this render method only accepts 'self' (no mode parameter)
+                if len(params) <= 1 and "mode" not in sig.parameters:
+                    # Patch this wrapper's render method
+                    compatible_method = make_compatible_render(render_method)
+                    current_env.render = MethodType(compatible_method, current_env)
+                    print(f"Patched render method on {type(current_env).__name__}")
+                    patched_count += 1
+            except (ValueError, TypeError):
+                # Can't inspect signature, skip
+                pass
+        
+        # Move to next wrapper in chain
+        if hasattr(current_env, 'env'):
+            current_env = current_env.env
+        elif hasattr(current_env, 'unwrapped') and current_env.unwrapped != current_env:
+            current_env = current_env.unwrapped
+        else:
+            break
+    
+    print(f"Patched {patched_count} wrapper(s) for render compatibility")
+    return env
 
 
 def evaluate(
@@ -89,7 +169,7 @@ def evaluate(
     while not done:
       # Capture frame for last episode only
             if i == num_episodes - 1:
-                frame = env.render()
+                frame = safe_render(env)
                 last_episode_frames.append(frame)
             
             action = policy.act(observation, sample=False)
@@ -200,7 +280,7 @@ def main(_):
         wandb_id = "1u7lqxky"
         wandb.init(project="NewEnv", group="NewModel_pyramid_12", name="NewModel_12", id=wandb_id, mode="online", resume="must")
     else:
-        wandb.init(project="NewEnv", group="NewModel_pyramid_12", name="NewModel_pyramid_12", mode="online")
+        wandb.init(project="NewEnv", group="NewModel_pyramid_42", name="NewModel_pyramid_42", mode="online")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)
@@ -238,6 +318,12 @@ def main(_):
       save_dir=osp.join(exp_dir, "video", "eval"),
   )
   
+  # Patch render compatibility for both environments
+  print("Patching training env render compatibility...")
+  env = patch_env_render_compatibility(env)
+  print("Patching eval env render compatibility...")
+  eval_env = patch_env_render_compatibility(eval_env)
+  
   # if config.reward_wrapper.pretrained_path:
   #   print("Using learned reward wrapper.")
   #   env = utils.wrap_learned_reward(env, FLAGS.config, device=device)
@@ -246,8 +332,12 @@ def main(_):
 
   # Dynamically set observation and action space values.
   # Get a sample observation to determine the flattened size
-  sample_obs= env.reset()
+  sample_obs = env.reset() 
   flattened_sample = flatten_observation(sample_obs)
+  
+  sample_next_obs = env.step(env.action_space.sample())[0]
+  flattened_next_sample = flatten_observation(sample_next_obs)
+  
   config.sac.obs_dim = flattened_sample.shape[0]
   config.sac.action_dim = env.action_space.shape[0]
   config.sac.action_range = [
@@ -261,8 +351,11 @@ def main(_):
   config = config_dict.FrozenConfigDict(config)
 
   policy = agent.SAC(device, config.sac)
+  
+  print("Sample observation flattened shape:", flattened_sample.shape)
+  print("Observation space shape:", flattened_sample.shape[0])
 
-  buffer = utils.make_buffer(env, device, config, flattened_obs_shape=(flattened_sample.shape[0],))
+  buffer = utils.make_buffer(env, device, config, flattened_obs_shape=(flattened_sample.shape[0],), flattened_next_obs_shape=(flattened_next_sample.shape[0],))
 
   # Create checkpoint manager.
   checkpoint_dir = osp.join(exp_dir, "checkpoints")
@@ -366,7 +459,7 @@ def main(_):
         action = policy.act(observation, sample=True)
         
       if should_record_video:
-          frame = env.render()
+          frame = safe_render(env)
           training_frames.append(frame) 
           
       # next_observation, reward, done, info = env.step(action, exp_dir = exp_dir, rank = 0, flag="train")
@@ -420,6 +513,7 @@ def main(_):
       
       # Flatten next_observation before storing in buffer and updating observation
       next_observation_flattened = flatten_observation(next_observation)
+      print("Next observation flattened shape:", next_observation_flattened.shape)
       
       # Convert CUDA tensors to CPU numpy arrays if needed
       if hasattr(reward, 'cpu'):
@@ -488,6 +582,7 @@ def main(_):
         done = False
         # Flatten the observation after reset
         observation = flatten_observation(observation)
+        print("observation after reset flattened shape:", observation.shape)
         # if "holdr" in config.reward_wrapper.type:
         #   # print("Resetting buffer and environment state.")
         #   # buffer.reset_state()

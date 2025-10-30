@@ -34,59 +34,76 @@ from torchkit.experiment import git_revision_hash
 from xirl import common
 import mani_skill
 import mani_skill.envs.tasks as mani_envs
+import mani_skill
+import mani_skill.envs.tasks as mani_envs
+import importlib
+
 
 import yaml
 
+# Global variable to store reference flattened size
+_FLATTEN_REF_SIZE = None
 
 def flatten_observation(obs):
-    """Extract all float32 arrays from observation and flatten them into a single vector.
-    
-    Args:
-        obs: Observation from environment (can be array, list, dict, or nested structure)
-        
-    Returns:
-        np.ndarray: Flattened float32 array containing all numeric data
-    """
-    def extract_float32_arrays(item):
-        """Recursively extract all float32 arrays from nested structures."""
+    """Robust flattening of nested ManiSkill observations into a fixed-length float32 vector."""
+    def extract_arrays(item):
         arrays = []
-        
+
         if isinstance(item, np.ndarray):
             if item.dtype == np.object_:
-                # Handle object arrays by recursing into their contents
                 for sub_item in item.flat:
-                    arrays.extend(extract_float32_arrays(sub_item))
-            elif np.issubdtype(item.dtype, np.floating) or np.issubdtype(item.dtype, np.integer):
-                # Convert numeric arrays to float32 and flatten
-                arrays.append(item.astype(np.float32).flatten())
-        elif isinstance(item, torch.Tensor):
-            # Convert tensors to numpy and flatten
-            arrays.append(item.detach().cpu().numpy().astype(np.float32).flatten())
-        elif isinstance(item, (list, tuple)):
-            # Recurse into sequences
-            for sub_item in item:
-                arrays.extend(extract_float32_arrays(sub_item))
-        elif isinstance(item, dict):
-            # Recurse into dictionary values (skip keys like 'reconfigure')
-            for value in item.values():
-                if isinstance(value, (np.ndarray, torch.Tensor, list, tuple, dict)):
-                    arrays.extend(extract_float32_arrays(value))
-        elif isinstance(item, (int, float, bool, np.number)):
-            # Convert scalars to arrays
-            arrays.append(np.array([float(item)], dtype=np.float32))
-        
-        return arrays
-    
-    # Extract all float32 arrays
-    float32_arrays = extract_float32_arrays(obs)
-    
-    if float32_arrays:
-        # Concatenate all arrays into a single flat vector
-        return np.concatenate(float32_arrays)
-    else:
-        # Return a default array if no valid data found
-        return np.array([0.0], dtype=np.float32)
+                    arrays.extend(extract_arrays(sub_item))
+            elif np.issubdtype(item.dtype, (np.floating, np.integer)):
+                arr = item.astype(np.float32).ravel()
+                # Replace NaNs or infs
+                arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+                arrays.append(arr)
 
+        elif isinstance(item, torch.Tensor):
+            # Safely handle GPU tensors
+            arr = item.detach().cpu().numpy().astype(np.float32).ravel()
+            arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+            arrays.append(arr)
+
+        elif isinstance(item, (list, tuple)):
+            for sub_item in item:
+                arrays.extend(extract_arrays(sub_item))
+
+        elif isinstance(item, dict):
+            for v in item.values():
+                arrays.extend(extract_arrays(v))
+
+        elif isinstance(item, (int, float, bool, np.number)):
+            arrays.append(np.array([float(item)], dtype=np.float32))
+
+        return arrays
+
+    float32_arrays = extract_arrays(obs)
+
+    if not float32_arrays:
+        flat = np.zeros((1,), dtype=np.float32)
+    else:
+        flat = np.concatenate(float32_arrays, dtype=np.float32)
+
+    # Enforce consistent size across timesteps
+    global _FLATTEN_REF_SIZE
+    if _FLATTEN_REF_SIZE is None:
+        _FLATTEN_REF_SIZE = flat.shape[0]
+        # print(f"[flatten_observation] reference size set to {_FLATTEN_REF_SIZE}")
+    else:
+        if flat.shape[0] != _FLATTEN_REF_SIZE:
+            diff = _FLATTEN_REF_SIZE - flat.shape[0]
+            if diff > 0:
+                # Pad missing elements with zeros
+                flat = np.pad(flat, (0, diff))
+                # print(f"[flatten_observation] padded +{diff} to maintain size {_FLATTEN_REF_SIZE}")
+            elif diff < 0:
+                # Truncate extras (shouldn't happen)
+                flat = flat[:_FLATTEN_REF_SIZE]
+                # print(f"[flatten_observation] truncated {abs(diff)} to maintain size {_FLATTEN_REF_SIZE}")
+
+    return flat
+  
 # pylint: disable=logging-fstring-interpolation
 
 ConfigDict = config_dict.ConfigDict
@@ -210,11 +227,24 @@ def make_env(
     gym.Env object.
   """
   # Create ManiSkill environment 
+    # This guarantees the environments (e.g. StackPyramid-v1) are registered with gym.
+  try:
+    importlib.import_module("mani_skill.envs.tasks.tabletop")
+    print("Successfully imported mani_skill.envs.tasks.tabletop")
+  except Exception:
+    # If import fails, fall back to importing the top-level tasks package which
+    # should still register most environments.
+    print("Importing mani_skill.envs.tasks.tabletop failed, trying mani_skill.envs.tasks instead.")
+    try:
+      importlib.import_module("mani_skill.envs.tasks")
+    except Exception:
+      # If both imports fail, proceed and let gym.raise the appropriate error.
+      pass
+    
   env = gym.make(
     "StackPyramid-v1", # there are more tasks e.g. "PushCube-v1", "PegInsertionSide-v1", ...
-    num_envs=1,
     obs_mode="state", # there is also "state_dict", "rgbd", ...
-    control_mode="pd_ee_delta_pose", # there is also "pd_joint_delta_pos", ...
+    control_mode="pd_ee_delta_pos", # there is also "pd_joint_delta_pos", ...
     render_mode="rgb_array"
     )
 
@@ -320,6 +350,7 @@ def make_buffer(
     device,
     config,
     flattened_obs_shape=None,
+    flattened_next_obs_shape=None,
 ):
   """Replay buffer factory.
 
@@ -336,9 +367,11 @@ def make_buffer(
   """
   # Use flattened observation shape if provided, otherwise use environment's shape
   obs_shape = flattened_obs_shape if flattened_obs_shape is not None else env.observation_space.shape
-  
+  next_obs_shape = flattened_next_obs_shape if flattened_next_obs_shape is not None else env.observation_space.shape
+
   kwargs = {
       "obs_shape": obs_shape,
+      "next_obs_shape": next_obs_shape,
       "action_shape": env.action_space.shape,
       "capacity": config.replay_buffer_capacity,
       "device": device,

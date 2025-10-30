@@ -1,0 +1,20 @@
+# Ignore the dataset folder
+datasets/
+
+# Ignore temporary and cache files
+/tmp/
+
+tests/
+
+videos.zip
+
+new_env_dataset.zip
+
+new_env_dataset/
+
+multicolor_dataset/
+
+videos/wandb/
+wandb/
+
+egocentric_dataset/
