@@ -36,6 +36,34 @@ TensorType = torch.Tensor
 DistanceFuncType = typing.Callable[[float], float]
 InfoMetric = typing.Mapping[str, typing.Mapping[str, typing.Any]]
 
+def frame_correction(frame):
+    import torch
+    import numpy as np
+    
+    # print("Not none")
+
+    # Convert torch tensor → numpy
+    if isinstance(frame, torch.Tensor):
+        frame = frame.detach().cpu().numpy()
+
+    # Some ManiSkill render functions may return (num_envs, H, W, 3)
+    if isinstance(frame, np.ndarray):
+        # print("np.ndarray detected")
+        if frame.ndim == 4 and frame.shape[-1] == 3:
+            # Take first environment frame
+            frame = frame[0]
+        elif frame.ndim == 5 and frame.shape[-1] == 3:
+            # Rare: (batch, num_envs, H, W, 3)
+            frame = frame[0, 0]
+
+    # Final sanity check
+    if not isinstance(frame, np.ndarray) or frame.ndim != 3 or frame.shape[-1] != 3:
+        print(f"[safe_render] Warning: unexpected frame shape {None if frame is None else frame.shape}")
+        return None
+
+    return frame
+
+    
 
 class FrameStack(gym.Wrapper):
   """Stack the last k frames of the env into a flat array.
@@ -248,12 +276,11 @@ class VideoRecorder(gym.Wrapper):
 
   def step(self, action):
     frame = self.env.render()
+    frame = frame_correction(frame)
+    
     if frame.shape[:2] != (self.height, self.width):
-      frame = cv2.resize(
-          frame,
-          dsize=(self.width, self.height),
-          interpolation=cv2.INTER_CUBIC,
-      )
+        frame = cv2.resize(frame, (self.width, self.height), interpolation=cv2.INTER_CUBIC)
+
     self.frames.append(frame)
     result = self.env.step(action)
     if len(result) == 5:

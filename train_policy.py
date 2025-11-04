@@ -63,27 +63,64 @@ config_flags.DEFINE_config_file(
     "File path to the training hyperparameter configuration.",
 )
 
-
 def safe_render(env, mode="rgb_array", **kwargs):
-    """Call env.render safely, handling signature mismatches between Gym and ManiSkill wrappers.
-    
-    Some ManiSkill wrappers implement render(self) while Gym expects render(self, mode, **kwargs).
-    This function tries both calling conventions and returns the result.
-    """
+    """Safely call env.render, handling ManiSkill/Gym differences and ensuring
+    a single (H, W, 3) RGB NumPy frame is always returned (even if batched)."""
+    import numpy as np
+    import torch
+
+    frame = None
     try:
-        # Try Gym convention first (with mode)
-        return env.render(mode=mode, **kwargs)
+        # Try Gym-style render first
+        frame = env.render(mode=mode, **kwargs)
     except TypeError as e:
         if "positional argument" in str(e) or "unexpected keyword argument" in str(e):
-            # Fallback to ManiSkill convention (no args)
+            # Fallback to ManiSkill-style render()
             try:
-                return env.render()
+                frame = env.render()
             except Exception:
-                # If both fail, re-raise the original error
                 raise e
         else:
-            # Re-raise non-signature related errors
             raise e
+
+    # ---- Normalize ManiSkill / Gym render output ----
+    if frame is None:
+        return None
+
+    # Handle dicts or lists (e.g., ManiSkill multiple cameras)
+    if isinstance(frame, dict):
+        # Pick the first camera image
+        frame = next(iter(frame.values()))
+    elif isinstance(frame, (list, tuple)):
+        frame = frame[0]
+
+    # Convert torch.Tensor → numpy
+    if isinstance(frame, torch.Tensor):
+        frame = frame.detach().cpu().numpy()
+
+    # Handle batched ManiSkill outputs (num_envs, H, W, 3)
+    if isinstance(frame, np.ndarray):
+        if frame.ndim == 4 and frame.shape[-1] == 3:
+            frame = frame[0]
+        elif frame.ndim == 5 and frame.shape[-1] == 3:
+            frame = frame[0, 0]
+
+    # Convert float images to uint8 if needed
+    if isinstance(frame, np.ndarray) and frame.dtype != np.uint8:
+        fmin, fmax = frame.min(), frame.max()
+        if fmin >= 0.0 and fmax <= 1.0:
+            frame = (frame * 255).astype(np.uint8)
+        elif fmin >= -1.0 and fmax <= 1.0:
+            frame = ((frame + 1.0) / 2.0 * 255).astype(np.uint8)
+        else:
+            frame = np.clip(frame, 0, 255).astype(np.uint8)
+
+    # Final sanity check
+    if not isinstance(frame, np.ndarray) or frame.ndim != 3 or frame.shape[-1] != 3:
+        print(f"[safe_render] Warning: unexpected frame shape {getattr(frame, 'shape', None)}")
+        return None
+
+    return frame
 
 
 def patch_env_render_compatibility(env):
@@ -141,123 +178,163 @@ def patch_env_render_compatibility(env):
     print(f"Patched {patched_count} wrapper(s) for render compatibility")
     return env
 
+def to_json_serializable(obj):
+    """Recursively convert objects (like torch.Tensor, np.ndarray) into JSON-safe types."""
+    if isinstance(obj, torch.Tensor):
+        return obj.detach().cpu().tolist()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, (np.int32, np.int64)):
+        return int(obj)
+    elif isinstance(obj, dict):
+        return {k: to_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [to_json_serializable(v) for v in obj]
+    else:
+        return obj
 
-def evaluate(
-    policy,
-    env,
-    num_episodes,
-):
-  """Evaluate the policy and dump rollout videos to disk."""
-  episode_rewards = []
-  policy.eval()
-  stats = collections.defaultdict(list)
-  last_episode_frames = []
-  last_episode_rewards = []
-  last_episode_actions = []
-  exp_dir = os.path.dirname(os.path.dirname(env.save_dir))
-    
-  for i in range(num_episodes):
-    observation = env.reset()
-    done = False
-    # Flatten the observation to handle ManiSkill's object dtype arrays
-    observation = flatten_observation(observation)
-    if "holdr" in FLAGS.experiment_name:
-      # Reset the buffer and environment state for holdr.
-      env.reset_state()
-    episode_reward = 0
-    count=0
-    while not done:
-      # Capture frame for last episode only
+def evaluate(policy, env, num_episodes):
+    """Evaluate the policy and dump rollout videos to disk."""
+    import numpy as np, torch, collections, json, os, logging, wandb
+
+    def safe_mean(x):
+        """Compute mean safely for lists or tensors."""
+        if isinstance(x, torch.Tensor):
+            x = x.detach().cpu().numpy()
+        elif isinstance(x, list):
+            x = [
+                t.detach().cpu().item() if isinstance(t, torch.Tensor) else float(t)
+                for t in x
+            ]
+        return float(np.mean(x)) if len(x) > 0 else 0.0
+
+    episode_rewards = []
+    policy.eval()
+    stats = collections.defaultdict(list)
+    last_episode_frames = []
+    last_episode_rewards = []
+    last_episode_actions = []
+    exp_dir = os.path.dirname(os.path.dirname(env.save_dir))
+
+    for i in range(num_episodes):
+        observation = env.reset()
+        done = False
+        observation = flatten_observation(observation)
+        if "holdr" in FLAGS.experiment_name:
+            env.reset_state()
+        episode_reward = 0
+        count = 0
+
+        while not done:
             if i == num_episodes - 1:
+                # print("Recording training video eval ...")
                 frame = safe_render(env)
-                last_episode_frames.append(frame)
-            
+                if frame is None or frame.size == 0:
+                    print("Warning: Skipping rendering this frame due to empty frame.")
+                else:
+                    last_episode_frames.append(frame)
+
             action = policy.act(observation, sample=False)
-            
+
             if i == num_episodes - 1:
                 if isinstance(action, torch.Tensor):
-                    action_np = action.cpu().numpy()
+                    action_np = action.detach().cpu().numpy()
                 else:
-                    action_np = action  # Already numpy array
-                    
+                    action_np = np.asarray(action)
                 last_episode_actions.append(action_np.tolist())
-                
-            
-            base_env= env.unwrapped
+
+            base_env = env.unwrapped
             base_env.index_seed_steps = count
-            count+=1
+            count += 1
+
             result = env.step(action)
             if len(result) == 5:
                 observation, reward, terminated, truncated, info = result
                 done = terminated or truncated
             else:
                 observation, reward, done, info = result
-            # Flatten the observation for the next step
+
             observation = flatten_observation(observation)
+            if isinstance(reward, torch.Tensor):  ### FIX
+                reward = reward.detach().cpu().item()
             episode_reward += reward
-            
-            # Capture reward for last episode only
+
             if i == num_episodes - 1:
                 last_episode_rewards.append(reward)
-    for k, v in info["episode"].items():
-      stats[k].append(v)
-    if "eval_score" in info:
-      stats["eval_score"].append(info["eval_score"])
-      print(f"Episode {i} eval score: {stats['eval_score']}")
-    episode_rewards.append(episode_reward)
-    
-    actions_file = os.path.join(exp_dir, "last_evaluation_actions.json")
-        
-    action_data = {
-        "actions": last_episode_actions,
-        "total_reward": sum(last_episode_rewards),
-    }
-    
-    with open(actions_file, 'w') as f:
-        json.dump(action_data, f, indent=2)
-    
-    logging.info(f"Saved last evaluation actions to {actions_file}")
-    
-    # Log video and reward plot to wandb
-    if last_episode_frames and FLAGS.wandb:
-        # Convert frames to proper format (time, channel, height, width)
-        frames = np.array([frame.transpose(2, 0, 1) for frame in last_episode_frames])
-        wandb.log({
-            "eval/last_eval_video": wandb.Video(frames, fps=30, format="mp4"),
-            "eval/step": i  # Use current training step
-        })
-        
-        try:
-            import matplotlib.pyplot as plt
-            plt.figure(figsize=(10, 6))
-            plt.plot(last_episode_rewards)
-            plt.title("Reward Evolution - Last Evaluation Episode")
-            plt.xlabel("Step")
-            plt.ylabel("Reward")
-            plt.tight_layout()
+
+        # Collect stats safely
+        for k, v in info["episode"].items():
+            if isinstance(v, torch.Tensor):
+                v = v.detach().cpu().numpy()
+            stats[k].append(v)
+        if "eval_score" in info:
+            if isinstance(info["eval_score"], torch.Tensor):  ### FIX
+                info["eval_score"] = info["eval_score"].detach().cpu().item()
+            stats["eval_score"].append(info["eval_score"])
+            print(f"Episode {i} eval score: {stats['eval_score']}")
+
+        episode_rewards.append(episode_reward)
+
+        # Save last episode actions
+        actions_file = os.path.join(exp_dir, "last_evaluation_actions.json")
+        action_data = {
+            "actions": last_episode_actions,
+            "total_reward": sum(last_episode_rewards),
+        }
+
+        with open(actions_file, "w") as f:
+            json.dump(to_json_serializable(action_data), f, indent=2)
+
+        logging.info(f"Saved last evaluation actions to {actions_file}")
+
+        # Log video and reward plot to wandb
+        if last_episode_frames and FLAGS.wandb:
+            frames = np.array([frame.transpose(2, 0, 1) for frame in last_episode_frames])
             wandb.log({
-                "eval/last_reward_plot": wandb.Image(plt),
+                "eval/last_eval_video": wandb.Video(frames, fps=30, format="mp4"),
                 "eval/step": i
             })
-            plt.close()
-        except ImportError:
-            pass  # matplotlib not available
-  for k, v in stats.items():
-    stats[k] = np.mean(v)
-    
-  if FLAGS.wandb:
+
+            try:
+                import matplotlib.pyplot as plt
+                plt.figure(figsize=(10, 6))
+                plt.plot(last_episode_rewards)
+                plt.title("Reward Evolution - Last Evaluation Episode")
+                plt.xlabel("Step")
+                plt.ylabel("Reward")
+                plt.tight_layout()
+                wandb.log({
+                    "eval/last_reward_plot": wandb.Image(plt),
+                    "eval/step": i
+                })
+                plt.close()
+            except ImportError:
+                pass
+
+    # ---- SAFE MEAN FIX ----
+    for k, v in stats.items():
+        if isinstance(v, torch.Tensor):
+            v = v.detach().cpu().numpy()
+        elif isinstance(v, list) and len(v) > 0 and isinstance(v[0], torch.Tensor):
+            v = np.array([x.detach().cpu().numpy() for x in v])
+        stats[k] = safe_mean(v)  ### FIX
+
+    if FLAGS.wandb:
         wandb.log({
-            "eval/mean_episode_reward": np.mean(episode_rewards),
-            "eval/episode_rewards": episode_rewards,
+            "eval/mean_episode_reward": safe_mean(episode_rewards),  ### FIX
+            "eval/episode_rewards": [float(r) for r in episode_rewards],  ### FIX
             "eval/step": i,
         })
         if "eval_score" in stats:
             wandb.log({
-                "eval/mean_eval_score": stats["eval_score"],
+                "eval/mean_eval_score": safe_mean(stats["eval_score"]),  ### FIX
                 "eval/eval_scores": stats.get("eval_score", []),
                 "eval/step": i,
             })
-  return stats, episode_rewards
+
+    return stats, episode_rewards
 
 
 @experiment.pdb_fallback
@@ -280,7 +357,7 @@ def main(_):
         wandb_id = "1u7lqxky"
         wandb.init(project="NewEnv", group="NewModel_pyramid_12", name="NewModel_12", id=wandb_id, mode="online", resume="must")
     else:
-        wandb.init(project="NewEnv", group="NewModel_pyramid_42", name="NewModel_pyramid_42", mode="online")
+        wandb.init(project="NewEnv", group="Stack_Cube_oldlayer_newsetting_42", name="Stack_Cube_oldlayer_newsetting_42", mode="online")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)
@@ -352,8 +429,8 @@ def main(_):
 
   policy = agent.SAC(device, config.sac)
   
-  print("Sample observation flattened shape:", flattened_sample.shape)
-  print("Observation space shape:", flattened_sample.shape[0])
+  # print("Sample observation flattened shape:", flattened_sample.shape)
+  # print("Observation space shape:", flattened_sample.shape[0])
 
   buffer = utils.make_buffer(env, device, config, flattened_obs_shape=(flattened_sample.shape[0],), flattened_next_obs_shape=(flattened_next_sample.shape[0],))
 
@@ -459,7 +536,12 @@ def main(_):
         action = policy.act(observation, sample=True)
         
       if should_record_video:
+          # print("Recording training video...")
           frame = safe_render(env)
+          if frame is None or frame.size == 0:
+            # Skip rendering this frame to avoid crash
+            print("Warning: Skipping rendering this frame due to empty frame.")
+
           training_frames.append(frame) 
           
       # next_observation, reward, done, info = env.step(action, exp_dir = exp_dir, rank = 0, flag="train")
@@ -513,7 +595,7 @@ def main(_):
       
       # Flatten next_observation before storing in buffer and updating observation
       next_observation_flattened = flatten_observation(next_observation)
-      print("Next observation flattened shape:", next_observation_flattened.shape)
+      # print("Next observation flattened shape:", next_observation_flattened.shape)
       
       # Convert CUDA tensors to CPU numpy arrays if needed
       if hasattr(reward, 'cpu'):
@@ -530,7 +612,7 @@ def main(_):
       observation = next_observation_flattened
 
       if done:
-        if should_record_video and training_frames  and FLAGS.wandb:
+        if should_record_video and training_frames and FLAGS.wandb:
             try:
                 # Convert frames to proper format
                 frames = np.array([frame.transpose(2, 0, 1) for frame in training_frames])
@@ -582,7 +664,7 @@ def main(_):
         done = False
         # Flatten the observation after reset
         observation = flatten_observation(observation)
-        print("observation after reset flattened shape:", observation.shape)
+        # print("observation after reset flattened shape:", observation.shape)
         # if "holdr" in config.reward_wrapper.type:
         #   # print("Resetting buffer and environment state.")
         #   # buffer.reset_state()

@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=Stack_Pyramid_42
+#SBATCH --job-name=Stack_Cube_42_newlayer_newsetting
 #SBATCH --ntasks=1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=s327313@studenti.polito.it
-#SBATCH --output=stack_pyramid_42.log
+#SBATCH --output=stack_Cube_42_newlayer_newsetting.log
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu_a40
 #SBATCH --cpus-per-task=24
