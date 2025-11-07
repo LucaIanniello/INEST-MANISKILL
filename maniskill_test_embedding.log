@@ -1,0 +1,93 @@
+CUDA_VISIBLE_DEVICES: 0
+/home/liannello/miniconda3/envs/xirl_py39/lib/python3.9/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/home/liannello/INEST-MANISKILL/xirl/models.py:440: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @torch.cuda.amp.autocast()
+/home/liannello/miniconda3/envs/xirl_py39/lib/python3.9/site-packages/sapien/_vulkan_tricks.py:73: UserWarning: Failed to find Vulkan ICD file. This is probably due to an incorrect or partial installation of the NVIDIA driver. SAPIEN will attempt to provide an ICD file anyway but it may not work.
+  warn(
+/home/liannello/miniconda3/envs/xirl_py39/lib/python3.9/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/liannello/miniconda3/envs/xirl_py39/lib/python3.9/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet18_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet18_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/liannello/miniconda3/envs/xirl_py39/lib/python3.9/site-packages/torchkit/checkpoint.py:101: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state = torch.load(Path(save_path), map_location="cpu")
+W1107 09:39:41.622577 140648021484672 checkpoint.py:104] optimizer in saved checkpoint not in checkpoint to reload. Skipping it.
+I1107 09:39:41.625069 140648021484672 test_embedding.py:77] Restored model from checkpoint 5001.
+I1107 09:39:41.777357 140648021484672 utils.py:199] Successfully loaded subtask_means.pkl from /home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d/subtask_means.pkl
+I1107 09:39:41.777908 140648021484672 utils.py:199] Successfully loaded distance_scale.pkl from /home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d/distance_scale.pkl
+I1107 09:39:41.777936 140648021484672 test_embedding.py:57] Embedding stackpyramid.
+Using device: cuda
+model_selected:  resnet18_linear
+/home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d
+Using INEST reward function
+  0%|          | 0/100 [00:00<?, ?it/s]                                       ['/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/frames/valid/stackpyramid/3']
+Frame: 0, Subtask 0, Reward-2.2669499957840364, Dist-2.2669499957840364, Cosine Similarity: 0.9965106844902039, -0.8249642252922058
+Frame: 1, Subtask 0, Reward-1.7693510410845743, Dist-1.7693510410845743, Cosine Similarity: 0.9963871240615845, -0.8242693543434143
+Frame: 2, Subtask 0, Reward-1.7861350040884203, Dist-1.7861350040884203, Cosine Similarity: 0.9963870048522949, -0.8243106007575989
+Frame: 3, Subtask 0, Reward-1.7496449601005357, Dist-1.7496449601005357, Cosine Similarity: 0.9963881969451904, -0.8242343068122864
+Frame: 4, Subtask 0, Reward-1.4047890589573953, Dist-1.4047890589573953, Cosine Similarity: 0.9962515830993652, -0.8231640458106995
+Frame: 5, Subtask 0, Reward-1.2338613905100697, Dist-1.2338613905100697, Cosine Similarity: 0.9958606958389282, -0.8217371106147766
+Frame: 6, Subtask 0, Reward-1.0515891156200317, Dist-1.0515891156200317, Cosine Similarity: 0.9955072999000549, -0.8199144601821899
+Frame: 7, Subtask 0, Reward-0.9845487295817945, Dist-0.9845487295817945, Cosine Similarity: 0.9952634572982788, -0.8185780644416809
+Frame: 8, Subtask 0, Reward-0.6468253845885432, Dist-0.6468253845885432, Cosine Similarity: 0.9939211010932922, -0.8098646402359009
+Frame: 9, Subtask 0, Reward-0.3373612746511262, Dist-0.3373612746511262, Cosine Similarity: 0.995392918586731, -0.8200626373291016
+Frame: 10, Subtask 0, Reward-0.2742528635806319, Dist-0.2742528635806319, Cosine Similarity: 0.9938889741897583, -0.8118878602981567
+Frame: 11, Subtask 0, Reward-0.2673495360581116, Dist-0.2673495360581116, Cosine Similarity: 0.9933367371559143, -0.8080434799194336
+Frame: 12, Subtask 0, Reward-0.19607857699936393, Dist-0.19607857699936393, Cosine Similarity: 0.9951868653297424, -0.8205227255821228
+Frame: 13, Subtask 0, Reward-0.26413029295334867, Dist-0.26413029295334867, Cosine Similarity: 0.9961012005805969, -0.8235751390457153
+Frame: 14, Subtask 0, Reward-0.12174351438334946, Dist-0.12174351438334946, Cosine Similarity: 0.9984889626502991, -0.8366044759750366
+Frame: 15, Subtask 0, Reward-0.02863320493589375, Dist-0.02863320493589375, Cosine Similarity: 0.9990531802177429, -0.8515175580978394
+Frame: 16, Subtask 0, Reward-0.01789984796214277, Dist-0.01789984796214277, Cosine Similarity: 0.9987666010856628, -0.8529468774795532
+Frame: 17, Subtask 1, Reward-2.1267618263903145, Dist-4.1267618263903145, Cosine Similarity: 0.9990119338035583, -0.8513649106025696
+Frame: 18, Subtask 1, Reward-2.0803271656674545, Dist-4.0803271656674545, Cosine Similarity: 0.9991719126701355, -0.851347804069519
+Frame: 19, Subtask 1, Reward-1.8258330928000714, Dist-3.8258330928000714, Cosine Similarity: 0.9988697171211243, -0.8669179677963257
+Frame: 20, Subtask 1, Reward-1.7135716880375025, Dist-3.7135716880375025, Cosine Similarity: 0.9962469935417175, -0.8760366439819336
+Frame: 21, Subtask 1, Reward-1.5924780708296673, Dist-3.5924780708296673, Cosine Similarity: 0.9930399656295776, -0.8950934410095215
+Frame: 22, Subtask 1, Reward-1.178050392452053, Dist-3.178050392452053, Cosine Similarity: 0.7222785949707031, -0.851222038269043
+Frame: 23, Subtask 1, Reward-1.1533841676093468, Dist-3.153384167609347, Cosine Similarity: 0.5938334465026855, -0.7794628739356995
+Frame: 24, Subtask 1, Reward-1.0558844318851786, Dist-3.0558844318851786, Cosine Similarity: -0.08788072317838669, -0.20979472994804382
+Frame: 25, Subtask 1, Reward-1.053226852750726, Dist-3.053226852750726, Cosine Similarity: -0.07671020925045013, -0.21239785850048065
+Frame: 26, Subtask 1, Reward-1.0362416169032178, Dist-3.036241616903218, Cosine Similarity: -0.2206985354423523, -0.07934808731079102
+Frame: 27, Subtask 1, Reward-0.9813304560938629, Dist-2.981330456093863, Cosine Similarity: -0.5103952884674072, 0.2228609025478363
+Frame: 28, Subtask 1, Reward-0.9376478741552274, Dist-2.9376478741552274, Cosine Similarity: -0.6402962803840637, 0.37295377254486084
+Frame: 29, Subtask 1, Reward-0.8780422852511833, Dist-2.8780422852511833, Cosine Similarity: -0.7310478687286377, 0.49265795946121216
+Frame: 30, Subtask 1, Reward-0.8044443027652171, Dist-2.804444302765217, Cosine Similarity: -0.7822259068489075, 0.569328784942627
+Frame: 31, Subtask 1, Reward-0.666969633532271, Dist-2.666969633532271, Cosine Similarity: -0.8682458400726318, 0.7118712067604065
+Frame: 32, Subtask 1, Reward-0.6171030094679639, Dist-2.617103009467964, Cosine Similarity: -0.8748770952224731, 0.7246790528297424
+Frame: 33, Subtask 1, Reward-0.5707798532337236, Dist-2.5707798532337236, Cosine Similarity: -0.8866145014762878, 0.7435901165008545
+Frame: 34, Subtask 1, Reward-0.5274293586108301, Dist-2.52742935861083, Cosine Similarity: -0.8955705761909485, 0.7776387333869934
+Frame: 35, Subtask 1, Reward-0.45566280265067194, Dist-2.455662802650672, Cosine Similarity: -0.9078655242919922, 0.8072919249534607
+Frame: 36, Subtask 1, Reward-0.06310040517489623, Dist-2.0631004051748962, Cosine Similarity: -0.929524302482605, 0.91130530834198
+Frame: 37, Subtask 1, Reward0.13559233813132177, Dist-1.8644076618686782, Cosine Similarity: -0.925678014755249, 0.9422950148582458
+Frame: 38, Subtask 1, Reward0.23137733147645556, Dist-1.7686226685235444, Cosine Similarity: -0.922988772392273, 0.9522334337234497
+Frame: 39, Subtask 1, Reward0.2697061972798951, Dist-1.730293802720105, Cosine Similarity: -0.9235166311264038, 0.9507147073745728
+Frame: 40, Subtask 1, Reward0.4649110790787301, Dist-1.53508892092127, Cosine Similarity: -0.9137842655181885, 0.9688904285430908
+Frame: 41, Subtask 1, Reward0.5396778835558349, Dist-1.460322116444165, Cosine Similarity: -0.8917357921600342, 0.9870690107345581
+Frame: 42, Subtask 1, Reward0.41536472906190247, Dist-1.5846352709380975, Cosine Similarity: -0.8881040215492249, 0.9879248738288879
+Frame: 43, Subtask 1, Reward0.6773860322589249, Dist-1.322613967741075, Cosine Similarity: -0.8589785099029541, 0.998669445514679
+Frame: 44, Subtask 1, Reward0.6587415991645149, Dist-1.341258400835485, Cosine Similarity: -0.8605615496635437, 0.9985133409500122
+Frame: 45, Subtask 1, Reward0.733287134600473, Dist-1.266712865399527, Cosine Similarity: -0.8547753095626831, 0.9991371035575867
+Frame: 46, Subtask 1, Reward0.8702217944230297, Dist-1.1297782055769703, Cosine Similarity: -0.8449893593788147, 0.9994006156921387
+Frame: 47, Subtask 1, Reward1.0206619570373288, Dist-0.9793380429626712, Cosine Similarity: -0.8371692299842834, 0.9989099502563477
+Frame: 48, Subtask 1, Reward1.1909429052179923, Dist-0.8090570947820076, Cosine Similarity: -0.8270256519317627, 0.9974156618118286
+Frame: 49, Subtask 1, Reward1.1917599357396975, Dist-0.8082400642603025, Cosine Similarity: -0.8207440376281738, 0.9958675503730774
+Frame: 50, Subtask 1, Reward1.4461030385280735, Dist-0.5538969614719264, Cosine Similarity: -0.8012045621871948, 0.9901111125946045
+Frame: 51, Subtask 1, Reward1.4071081362863633, Dist-0.5928918637136367, Cosine Similarity: -0.7950588464736938, 0.9886607527732849
+Frame: 52, Subtask 1, Reward1.4889451219622, Dist-0.5110548780377999, Cosine Similarity: -0.7960200309753418, 0.9887179136276245
+Frame: 53, Subtask 1, Reward1.5464820759866076, Dist-0.45351792401339236, Cosine Similarity: -0.7956188321113586, 0.9884939789772034
+Frame: 54, Subtask 1, Reward1.5664052735594474, Dist-0.43359472644055264, Cosine Similarity: -0.800892174243927, 0.9899963140487671
+Frame: 55, Subtask 1, Reward1.5916679018246112, Dist-0.40833209817538874, Cosine Similarity: -0.7968751788139343, 0.988767683506012
+Frame: 56, Subtask 1, Reward1.718656032721625, Dist-0.28134396727837513, Cosine Similarity: -0.7981846332550049, 0.9892498254776001
+Frame: 57, Subtask 1, Reward1.7929253884000877, Dist-0.20707461159991225, Cosine Similarity: -0.803418755531311, 0.9909746050834656
+Frame: 58, Subtask 1, Reward1.7961855283630714, Dist-0.20381447163692856, Cosine Similarity: -0.8138881921768188, 0.9943444728851318
+Frame: 59, Subtask 1, Reward1.7515164831405823, Dist-0.24848351685941772, Cosine Similarity: -0.8268519043922424, 0.9972479939460754
+Frame: 60, Subtask 1, Reward1.8384903952606084, Dist-0.1615096047393917, Cosine Similarity: -0.8298061490058899, 0.9978810548782349
+Frame: 61, Subtask 1, Reward1.8743716071877339, Dist-0.12562839281226618, Cosine Similarity: -0.8369442224502563, 0.9989962577819824
+Frame: 62, Subtask 1, Reward1.9301567245987135, Dist-0.06984327540128657, Cosine Similarity: -0.843509316444397, 0.9996393918991089
+Frame: 63, Subtask 1, Reward1.94287537684038, Dist-0.05712462315962006, Cosine Similarity: -0.8441394567489624, 0.9996963143348694
+Frame: 64, Subtask 1, Reward1.9801687353851196, Dist-0.019831264614880443, Cosine Similarity: -0.8612223267555237, 0.9994319081306458
+Frame: 65, Subtask 2, Reward4.0, Dist-0.019831264614880443 Cosine Similarity: -0.8632670640945435, 0.9991328120231628
+Saved rewards to: /home/liannello/MANISKILL/experiment_results/Pretrain_results/reward.json
+Saved rewards to: /home/liannello/MANISKILL/experiment_results/Pretrain_results/cosine.json
+Saved cosine similarity plot to: /home/liannello/MANISKILL/experiment_results/Pretrain_results/CosineSimilarity_SmoothTransitions.png
+Saved reward plot to: /home/liannello/MANISKILL/experiment_results/Pretrain_results/ALLO_NEWDIST_TEST.png

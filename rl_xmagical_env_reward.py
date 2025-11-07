@@ -31,7 +31,7 @@ FLAGS = flags.FLAGS
 CONFIG_PATH = "configs/xmagical/rl/env_reward.py"
 
 flags.DEFINE_enum("embodiment", None, EMBODIMENTS, "Which embodiment to train.")
-flags.DEFINE_list("seeds", [0, 5], "List specifying the range of seeds to run.")
+flags.DEFINE_integer("seed", 12 , "Seeds to run.")
 flags.DEFINE_string("device", "cuda:0", "The compute device.")
 flags.DEFINE_boolean("wandb", False, "Log on W&B.")
 
@@ -41,22 +41,20 @@ def main(_):
   env_name = XMAGICAL_EMBODIMENT_TO_ENV_NAME[FLAGS.embodiment]
 
   # Generate a unique experiment name.
-  experiment_name = string_from_kwargs(
-      env_name=env_name,
-      reward="sparse_env",
-      uid=unique_id(),
-  )
+  # experiment_name = string_from_kwargs(
+  #     env_name=env_name,
+  #     reward="sparse_env",
+  #     uid=unique_id(),
+  # )
   
-  # experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=sparse_env_uid=dfce6666-ac5a-440c-8011-922d0c0a53f4"
+  experiment_name = "env_name=SweepToTop-Gripper-State-Allo-TestLayout-v0_reward=sparse_env_uid=dfce6666-ac5a-440c-8011-922d0c0a53f4"
   logging.info("Experiment name: %s", experiment_name)
   
   
 
   # Execute each seed in parallel.
-  procs = []
-  for seed in range(*list(map(int, FLAGS.seeds))):
-    procs.append(
-        subprocess.Popen([  # pylint: disable=consider-using-with
+  
+  process = subprocess.Popen([  # pylint: disable=consider-using-with
             "python",
             "train_policy.py",
             "--experiment_name",
@@ -66,18 +64,24 @@ def main(_):
             "--config",
             f"{CONFIG_PATH}:{FLAGS.embodiment}",
             "--seed",
-            f"{12}",
+            f"{FLAGS.seed}",
             "--device",
             f"{FLAGS.device}",
              "--wandb",
             f"{FLAGS.wandb}",
             "--resume",
             f"{True}"
-        ]))
+        ])
+  
+  return_code = process.wait()
+  print(f"train_policy.py finished with return code: {return_code}")
 
-  # Wait for each seed to terminate.
-  for p in procs:
-    p.wait()
+  if return_code != 0:
+    print(f"ERROR: train_policy.py failed with return code {return_code}")
+    exit(return_code)
+  else:
+    print("train_policy.py completed successfully!")
+
 
 
 if __name__ == "__main__":

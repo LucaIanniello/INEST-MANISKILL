@@ -76,7 +76,8 @@ def main(_):
   logging.info("Experiment name: %s", experiment_name)
 
   # Execute each seed in parallel.
-  subprocess.Popen([  # pylint: disable=consider-using-with
+  print("Starting train_policy.py subprocess...")
+  process = subprocess.Popen([  # pylint: disable=consider-using-with
     "python",
     "train_policy.py",
     "--experiment_name",
@@ -98,6 +99,18 @@ def main(_):
     "--resume",
     f"{True}"
   ])
+  
+  # Wait for the process to complete and get the return code
+  return_code = process.wait()
+  print(f"train_policy.py finished with return code: {return_code}")
+  
+  if return_code != 0:
+    print(f"ERROR: train_policy.py failed with return code {return_code}")
+    exit(return_code)
+  else:
+    print("train_policy.py completed successfully!")
+
+
 
 
 if __name__ == "__main__":

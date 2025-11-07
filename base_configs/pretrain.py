@@ -27,7 +27,7 @@ def get_config():
   # General experiment params.
   # ============================================== #
   # The root directory where experiments will be saved.
-  config.root_dir = "/home/liannello/xirl/experiment_results/6Subtask/"
+  config.root_dir = "/home/liannello/INEST-MANISKILL_experiments/pretraining/"
   # Rng seed. Set this to `none` to disable seeding.
   config.seed = 1
   # cudnn-related parameters that affect reproducibility.
@@ -49,7 +49,7 @@ def get_config():
   #INITIAL DATASET
   #config.data.root = "/tmp/xirl/xirl_dataset/xmagical"
   #SUBTASK DATASET
-  config.data.root = "/home/liannello/xirl/EgocentricDataset6Subtask/frames/"
+  config.data.root = "/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/frames/"
   # Absolute path to the dataset root.
   # The mini-batch size. Note this only specifies the number of videos to
   # load frames from in a single batch. The effective batch size is actually

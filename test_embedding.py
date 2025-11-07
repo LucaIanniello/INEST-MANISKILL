@@ -30,7 +30,7 @@ from xirl import common
 from xirl.models import SelfSupervisedModel
 import pdb
 import matplotlib.pyplot as plt
-from sac.wrappers import HOLDRLearnedVisualReward
+from sac.wrappers import INESTIRLLearnedVisualReward
 import json
 
 # pylint: disable=logging-fstring-interpolation
@@ -97,7 +97,7 @@ def check_subtask_completion(dist, current_reward, subtask, subtask_solved_count
         if dist > -0.02:
             subtask_solved_counter += 1
             if subtask_solved_counter >= subtask_hold_steps:
-                subtask = min(num_subtasks - 1, subtask + 1)
+                subtask += 1
                 subtask_solved_counter = 0
                 if non_decreasing_reward:
                     prev_reward = current_reward
@@ -105,26 +105,26 @@ def check_subtask_completion(dist, current_reward, subtask, subtask_solved_count
             subtask_solved_counter = 0
     elif subtask == 1:
         # Hardcoded threshold for subtask 1, as in your example
-        if dist > -0.02:
+        if dist > -0.07:
             subtask_solved_counter += 1
             if subtask_solved_counter >= subtask_hold_steps:
-                subtask = min(num_subtasks - 1, subtask + 1)
+                subtask += 1
                 subtask_solved_counter = 0
                 if non_decreasing_reward:
                     prev_reward = current_reward
         else:
             subtask_solved_counter = 0
-    elif subtask == 2:
-        # Hardcoded threshold for subtask 2, as in your example
-        if dist > -0.01:
-            subtask_solved_counter += 1
-            if subtask_solved_counter >= subtask_hold_steps:
-                subtask = 3
-                subtask_solved_counter = 0
-                if non_decreasing_reward:
-                    prev_reward = current_reward
-        else:
-            subtask_solved_counter = 0
+    # elif subtask == 2:
+    #     # Hardcoded threshold for subtask 2, as in your example
+    #     if dist > -0.01:
+    #         subtask_solved_counter += 1
+    #         if subtask_solved_counter >= subtask_hold_steps:
+    #             subtask = 3
+    #             subtask_solved_counter = 0
+    #             if non_decreasing_reward:
+    #                 prev_reward = current_reward
+    #     else:
+    #         subtask_solved_counter = 0
     # You can add more elifs for further subtasks if needed
     return prev_reward, subtask, subtask_solved_counter
 
@@ -149,7 +149,7 @@ def main(_):
   #     rews.append(dist)
       
   # # elif "holdr" in FLAGS.experiment_path:
-  print("Using HOLDR reward function")
+  print("Using INEST reward function")
   subtask_means = utils.load_pickle(FLAGS.experiment_path, "subtask_means.pkl")
   distance_scale = utils.load_pickle(FLAGS.experiment_path, "distance_scale.pkl")
   embs = embed(model, downstream_loader, device)
@@ -163,7 +163,7 @@ def main(_):
   
   cosine_similarity_emb_subtask_1_vec = []
   cosine_similarity_emb_subtask_2_vec = []
-  cosine_similarity_emb_subtask_3_vec = []
+  # cosine_similarity_emb_subtask_3_vec = []
   previous_reward = -10.0
   
   # Track the previous subtask to detect transitions
@@ -177,19 +177,19 @@ def main(_):
   i = 0
   for emb in embs: 
     
-    subtask_1_mean , subtask_2_mean, subtask_3_mean = subtask_means
+    subtask_1_mean , subtask_2_mean = subtask_means
           
     cosine_similarity_emb_subtask_1 = np.dot(emb, subtask_1_mean) / (np.linalg.norm(emb) * np.linalg.norm(subtask_1_mean))
     cosine_similarity_emb_subtask_2 = np.dot(emb, subtask_2_mean) / (np.linalg.norm(emb) * np.linalg.norm(subtask_2_mean))
-    cosine_similarity_emb_subtask_3 = np.dot(emb, subtask_3_mean) / (np.linalg.norm(emb) * np.linalg.norm(subtask_3_mean))
+    # cosine_similarity_emb_subtask_3 = np.dot(emb, subtask_3_mean) / (np.linalg.norm(emb) * np.linalg.norm(subtask_3_mean))
     
     cosine_similarity_emb_subtask_1_vec.append(cosine_similarity_emb_subtask_1)
     cosine_similarity_emb_subtask_2_vec.append(cosine_similarity_emb_subtask_2)
-    cosine_similarity_emb_subtask_3_vec.append(cosine_similarity_emb_subtask_3)
+    # cosine_similarity_emb_subtask_3_vec.append(cosine_similarity_emb_subtask_3)
     
-    if subtask >= 3:
+    if subtask >= 2:
           reward = subtask * subtask_cost
-          print(f"Frame: {i}, Subtask {subtask}, Reward{reward}, Dist{dist} Cosine Similarity: {cosine_similarity_emb_subtask_1}, {cosine_similarity_emb_subtask_2}, {cosine_similarity_emb_subtask_3}")
+          print(f"Frame: {i}, Subtask {subtask}, Reward{reward}, Dist{dist} Cosine Similarity: {cosine_similarity_emb_subtask_1}, {cosine_similarity_emb_subtask_2}")
           rews.append(reward)
     else:
           goal_emb = subtask_means[subtask]
@@ -207,7 +207,7 @@ def main(_):
           #     reward = previous_reward
           # else:
           #     previous_reward = reward
-          print(f"Frame: {i}, Subtask {subtask}, Reward{reward}, Dist{dist}, Cosine Similarity: {cosine_similarity_emb_subtask_1}, {cosine_similarity_emb_subtask_2}, {cosine_similarity_emb_subtask_3}")
+          print(f"Frame: {i}, Subtask {subtask}, Reward{reward}, Dist{dist}, Cosine Similarity: {cosine_similarity_emb_subtask_1}, {cosine_similarity_emb_subtask_2}")
           # print(f"Reward: {reward}, Subtask: {subtask}, Distance: {dist}")
           rews.append(reward)      
           prev_reward, subtask, subtask_solved_counter = check_subtask_completion(
@@ -216,7 +216,7 @@ def main(_):
               non_decreasing_reward, len(subtask_means))
     i += 1
       
-  reward_save_path = os.path.join("/home/liannello/xirl/experiment_results/3Subtask_plots/Egocentric/", "reward.json")
+  reward_save_path = os.path.join("/home/liannello/MANISKILL/experiment_results/Pretrain_results/", "reward.json")
   with open(reward_save_path, "w") as f:
         json.dump(rews, f)
   print(f"Saved rewards to: {reward_save_path}")
@@ -225,11 +225,11 @@ def main(_):
       "Key": {
           "Subtask_1": np.asarray(cosine_similarity_emb_subtask_1_vec).tolist(),
           "Subtask_2": np.asarray(cosine_similarity_emb_subtask_2_vec).tolist(),
-          "Subtask_3": np.asarray(cosine_similarity_emb_subtask_3_vec).tolist()
+          # "Subtask_3": np.asarray(cosine_similarity_emb_subtask_3_vec).tolist()
       }
   }
   
-  cosine_save_path = os.path.join("/home/liannello/xirl/experiment_results/6Subtask/6Subtask_Pretrain_results/Egocentric/", "cosine.json")
+  cosine_save_path = os.path.join("/home/liannello/MANISKILL/experiment_results/Pretrain_results/", "cosine.json")
   with open(cosine_save_path, "w") as f:
         json.dump(cosine_sim_dict, f)
   print(f"Saved rewards to: {cosine_save_path}")
@@ -244,19 +244,19 @@ def main(_):
   plt.figure()
   plt.plot(cosine_similarity_emb_subtask_1_vec, label="Subtask 1")
   plt.plot(cosine_similarity_emb_subtask_2_vec, label="Subtask 2")
-  plt.plot(cosine_similarity_emb_subtask_3_vec, label="Subtask 3")
+  # plt.plot(cosine_similarity_emb_subtask_3_vec, label="Subtask 3")
   plt.title("Cosine Similarity vs Time")
   plt.xlabel("Step")
   plt.ylabel("Cosine Similarity")
   plt.legend(loc="lower left")
   plt.grid(True)
-  cosine_save_path = os.path.join("/home/liannello/xirl/experiment_results/3Subtask_plots/Egocentric/", "CosineSimilarity_SmoothTransitions.png")
+  cosine_save_path = os.path.join("/home/liannello/MANISKILL/experiment_results/Pretrain_results/", "CosineSimilarity_SmoothTransitions.png")
   plt.savefig(cosine_save_path, bbox_inches='tight')
   print(f"Saved cosine similarity plot to: {cosine_save_path}")
   plt.close()
 
   # Save the plot instead of showing it
-  save_path = os.path.join("/home/liannello/xirl/experiment_results/3Subtask_plots/Egocentric/", "ALLO_NEWDIST_TEST.png")
+  save_path = os.path.join("/home/liannello/MANISKILL/experiment_results/Pretrain_results/", "ALLO_NEWDIST_TEST.png")
   plt.savefig(save_path, bbox_inches='tight')
   print(f"Saved reward plot to: {save_path}")
   plt.close()

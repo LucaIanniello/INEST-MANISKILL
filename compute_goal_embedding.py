@@ -168,7 +168,7 @@ def main(_):
   model, downstream_loader = setup()
   model.to(device).eval()
 
-  subgoal_file_path = "/home/liannello/xirl/SubtaskDataset6Subtask/subgoal_frames.json"
+  subgoal_file_path = "/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/subtask_frames.json"
   
   subgoal_data = read_subgoal_from_file(subgoal_file_path)
   subtask_means, distance_scale = embed_subtasks(model, downstream_loader, device, subgoal_data)

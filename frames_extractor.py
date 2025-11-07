@@ -1,38 +1,59 @@
-import cv2
 import os
+import subprocess
+from pathlib import Path
+import cv2
 
-def extract_frames(video_path, output_dir, every_n_frames=30):
-    os.makedirs(output_dir, exist_ok=True)
-    cap = cv2.VideoCapture(video_path)
-    count = 0
-    saved = 0
-    while cap.isOpened():
+# === CONFIGURATION ===
+SRC_DIR = Path("/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/video/valid")   # Directory containing .mp4 files
+DEST_DIR = Path("/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/frames/valid")  # Directory to store extracted frames
+FPS = 30                                   # Base extraction fps
+FRAME_INTERVAL = 3                          # Take 1 frame every 3 (i.e., 10 fps)
+
+
+def extract_frames(video_path: Path, output_dir: Path):
+    """Extract frames using OpenCV instead of ffmpeg."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        print(f"❌ Could not open {video_path}")
+        return
+
+    frame_count = 0
+    saved_count = 0
+
+    print(f"Extracting frames from {video_path.name} ...")
+
+    while True:
         ret, frame = cap.read()
         if not ret:
             break
-        if count % every_n_frames == 0:
-            frame_path = os.path.join(output_dir, f"{saved}.jpg")
-            cv2.imwrite(frame_path, frame)
-            saved += 1
-        count += 1
+
+        # Save every 10th frame
+        if frame_count % FRAME_INTERVAL == 0:
+            saved_count += 1
+            frame_path = output_dir / f"{saved_count}.png"
+            cv2.imwrite(str(frame_path), frame)
+
+        frame_count += 1
+
     cap.release()
-    print(f"[✔] {os.path.basename(video_path)}: Saved {saved} frames.")
+    print(f"✅ Saved {saved_count} frames to {output_dir}\n")
 
-def process_all_repos(root_dir, output_root, every_n_frames=30):
-    for i in range(1000):
-        repo_name = f"{i:04d}"
-        video_path = os.path.join(root_dir, repo_name, f"{repo_name}.mp4")
-        output_dir = os.path.join(output_root, f"{i}")
+def main():
+    DEST_DIR.mkdir(parents=True, exist_ok=True)
 
-        if os.path.exists(video_path):
-            extract_frames(video_path, output_dir, every_n_frames)
-        else:
-            print(f"[!] Skipping {repo_name}: Video not found.")
+    videos = sorted(SRC_DIR.glob("*.mp4"))
+    if not videos:
+        print(f"No .mp4 files found in {SRC_DIR}")
+        return
 
-# Example usage
+    for video_path in videos:
+        video_name = video_path.stem
+        output_dir = DEST_DIR / video_name
+        extract_frames(video_path, output_dir)
+
+    print("🎉 All videos processed successfully!")
+
 if __name__ == "__main__":
-    ROOT_REPOS_DIR = "videos/"       
-    OUTPUT_DATASET_DIR = "multicolor_dataset/train" 
-    FRAME_INTERVAL = 10                      
-
-    process_all_repos(ROOT_REPOS_DIR, OUTPUT_DATASET_DIR, FRAME_INTERVAL)
+    main()

@@ -64,7 +64,7 @@ def main(_):
     return
   
   if FLAGS.wandb:
-    wandb.init(project="Egocentric", group="Pretrain", name="Ego_Resnet_6Subtask", mode="online")
+    wandb.init(project="StackPyramidPretrain", group="Pretrain", name="Xirl_Pretraining", mode="online")
     wandb.config.update(FLAGS)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)

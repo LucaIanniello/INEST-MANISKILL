@@ -832,7 +832,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
     
     def _check_subtask_completion(self, dist, current_reward):
       if self._subtask == 0:
-        if dist > -0.03:
+        if dist > -0.02:
             self._subtask_solved_counter += 1
             if self._subtask_solved_counter >= self._subtask_hold_steps:
                 self._subtask = self._subtask + 1
@@ -841,7 +841,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         else:
             self._subtask_solved_counter = 0
       elif self._subtask == 1:
-        if dist > -0.03:
+        if dist > -0.07:
             self._subtask_solved_counter += 1
             if self._subtask_solved_counter >= self._subtask_hold_steps:
                 self._subtask = self._subtask + 1

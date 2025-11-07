@@ -30,6 +30,7 @@ EMBODIMENTS = frozenset([
     "mediumstick",
     "longstick",
     "gripper",
+    "stackpyramid",
 ])
 
 # All baseline pretraining strategies we ran for the CoRL experiments.
