@@ -52,6 +52,7 @@ XMAGICALTrainingIterations = FrozenConfigDict({
     "mediumstick": 250_000,
     "shortstick": 500_000,
     "gripper": 20_500_000,
+    "stackpyramid": 50_000_000,  # Using similar iterations as shortstick for now
 })
 
 # A mapping from RLV environment to RL training iterations.

@@ -51,9 +51,9 @@ def get_config():
 
   config.reward_wrapper = ml_collections.ConfigDict()
   # config.reward_wrapper.pretrained_path = "/home/liannello/xirl/experiment_results/6Subtask/Allocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_ALLO_6Subtasks"
-  config.reward_wrapper.pretrained_path = "/home/liannello/xirl/experiment_results/6Subtask/Egocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_EGO_6Subtask"
+  config.reward_wrapper.pretrained_path = "/home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d"
   # Can be one of ['distance_to_goal', 'goal_classifier', holdr].
-  config.reward_wrapper.type = "holdr"
+  config.reward_wrapper.type = ""
 
   # Vector environment parameters for DDP
   config.num_envs_per_process = 3  # Number of parallel environments per DDP process

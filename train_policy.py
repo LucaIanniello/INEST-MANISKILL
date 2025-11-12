@@ -249,7 +249,7 @@ def evaluate(policy, env, num_episodes):
             base_env.index_seed_steps = count
             count += 1
 
-            result = env.step(action)
+            result = env.step(action, rank=0, exp_dir=exp_dir, flag="eval")
             if len(result) == 5:
                 observation, reward, terminated, truncated, info = result
                 done = terminated or truncated
@@ -273,7 +273,7 @@ def evaluate(policy, env, num_episodes):
             if isinstance(info["eval_score"], torch.Tensor):  ### FIX
                 info["eval_score"] = info["eval_score"].detach().cpu().item()
             stats["eval_score"].append(info["eval_score"])
-            print(f"Episode {i} eval score: {stats['eval_score']}")
+            print(f"Episode {i} eval score: {stats['eval_score']}", flush=True)
 
         episode_rewards.append(episode_reward)
 
@@ -319,7 +319,9 @@ def evaluate(policy, env, num_episodes):
             v = v.detach().cpu().numpy()
         elif isinstance(v, list) and len(v) > 0 and isinstance(v[0], torch.Tensor):
             v = np.array([x.detach().cpu().numpy() for x in v])
-        stats[k] = safe_mean(v)  ### FIX
+        stats[k] = safe_mean(v)
+
+    print(f"Mean Evaluation Score over {num_episodes} episodes: {stats['eval_score']}", flush=True)
 
     if FLAGS.wandb:
         wandb.log({
@@ -354,10 +356,10 @@ def main(_):
   
   if FLAGS.wandb:
     if FLAGS.resume:
-        wandb_id = "1u7lqxky"
-        wandb.init(project="NewEnv", group="NewModel_pyramid_12", name="NewModel_12", id=wandb_id, mode="online", resume="must")
+        wandb_id = "2i6fxynk"
+        wandb.init(project="NewEnv", group="Stack_Pyramid_DenseReward_12", name="Stack_Pyramid_DenseReward_12", id=wandb_id, mode="online", resume="must")
     else:
-        wandb.init(project="NewEnv", group="Stack_Cube_oldlayer_newsetting_42", name="Stack_Cube_oldlayer_newsetting_42", mode="online")
+        wandb.init(project="NewEnv", group="Stack_Pyramid_XIRL_24", name="Stack_Pyramid_XIRL_24", mode="online")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)
@@ -401,18 +403,18 @@ def main(_):
   print("Patching eval env render compatibility...")
   eval_env = patch_env_render_compatibility(eval_env)
   
-  # if config.reward_wrapper.pretrained_path:
-  #   print("Using learned reward wrapper.")
-  #   env = utils.wrap_learned_reward(env, FLAGS.config, device=device)
-  #   eval_env = utils.wrap_learned_reward(eval_env, FLAGS.config, device=device)
+  if config.reward_wrapper.pretrained_path:
+    print("Using learned reward wrapper.")
+    env = utils.wrap_learned_reward(env, FLAGS.config, device=device)
+    eval_env = utils.wrap_learned_reward(eval_env, FLAGS.config, device=device)
 
 
   # Dynamically set observation and action space values.
   # Get a sample observation to determine the flattened size
   sample_obs = env.reset() 
   flattened_sample = flatten_observation(sample_obs)
-  
-  sample_next_obs = env.step(env.action_space.sample())[0]
+
+  sample_next_obs = env.step(env.action_space.sample(), rank=0, exp_dir=exp_dir, flag="train")[0]
   flattened_next_sample = flatten_observation(sample_next_obs)
   
   config.sac.obs_dim = flattened_sample.shape[0]
@@ -545,7 +547,7 @@ def main(_):
           training_frames.append(frame) 
           
       # next_observation, reward, done, info = env.step(action, exp_dir = exp_dir, rank = 0, flag="train")
-      result = env.step(action)
+      result = env.step(action, rank=0, exp_dir=exp_dir, flag="train")
       if len(result) == 5:
           next_observation, reward, terminated, truncated, info = result
           done = terminated or truncated

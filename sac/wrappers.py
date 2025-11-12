@@ -350,9 +350,49 @@ class LearnedVisualReward(abc.ABC, gym.Wrapper):
     """Render the pixels at the desired resolution."""
     # TODO(kevin): Make sure this works for mujoco envs.
     pixels = self.env.render(mode="rgb_array")
+
+    # Handle dict/list outputs (maniskill may return multiple cameras)
+    if isinstance(pixels, dict):
+        pixels = next(iter(pixels.values()))
+    elif isinstance(pixels, (list, tuple)):
+        pixels = pixels[0]
+
+    # Convert torch.Tensor -> numpy
+    if isinstance(pixels, torch.Tensor):
+        pixels = pixels.detach().cpu().numpy()
+
+    # Handle batched ManiSkill outputs like (num_envs, H, W, 3) or (num_envs, cams, H, W, 3)
+    if isinstance(pixels, np.ndarray):
+        if pixels.ndim == 4 and pixels.shape[-1] == 3:
+            pixels = pixels[0]
+        elif pixels.ndim == 5 and pixels.shape[-1] == 3:
+            pixels = pixels[0, 0]
+
+        # Convert float images to uint8 if needed
+        if pixels.dtype != np.uint8:
+            try:
+                fmin, fmax = float(pixels.min()), float(pixels.max())
+            except Exception:
+                # If we can't compute min/max, fall back to clipping
+                pixels = np.clip(pixels, 0, 255).astype(np.uint8)
+            else:
+                if fmin >= 0.0 and fmax <= 1.0:
+                    pixels = (pixels * 255).astype(np.uint8)
+                elif fmin >= -1.0 and fmax <= 1.0:
+                    pixels = ((pixels + 1.0) / 2.0 * 255).astype(np.uint8)
+                else:
+                    pixels = np.clip(pixels, 0, 255).astype(np.uint8)
+    else:
+        # Unknown render output type -> return None so callers can handle it
+        return None
+
+    # Resize if requested
     if self._res_hw is not None:
-      h, w = self._res_hw
-      pixels = cv2.resize(pixels, dsize=(w, h), interpolation=cv2.INTER_CUBIC)
+        h, w = self._res_hw
+        # Ensure contiguous array of correct dtype for OpenCV
+        pixels = np.ascontiguousarray(pixels)
+        pixels = cv2.resize(pixels, dsize=(w, h), interpolation=cv2.INTER_CUBIC)
+
     return pixels
 
   @abc.abstractmethod
@@ -428,7 +468,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         distance_scale,
         index_seed_step = 0,
         subtask_threshold=5.0,
-        subtask_cost=2.0,
+        subtask_cost=5.0,
         subtask_hold_steps=1,
         intrinsic_scale=0.2,
         k_nearest=10,
@@ -832,7 +872,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
     
     def _check_subtask_completion(self, dist, current_reward):
       if self._subtask == 0:
-        if dist > -0.02:
+        if dist > -0.07:#0.02
             self._subtask_solved_counter += 1
             if self._subtask_solved_counter >= self._subtask_hold_steps:
                 self._subtask = self._subtask + 1
@@ -919,7 +959,13 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         return reward
 
     def step(self, action, rank, exp_dir, flag):
+        # print(f"WRAPPER: Step {self.index_seed_step} taking action in env.", flush=True)
         obs, env_reward, done, info = self.env.step(action)
+        eval = info.get("success", 0.0)
+        if eval == False:
+            info["eval_score"] = 0.0
+        else:
+            info["eval_score"] = 1.0
         info["env_reward"] = env_reward
         pixels = self._render_obs()
         learned_reward = self._get_reward_from_image(pixels, flag)

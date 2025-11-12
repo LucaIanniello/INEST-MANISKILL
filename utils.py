@@ -310,7 +310,7 @@ def wrap_learned_reward(env, config, device):
     
   elif config.reward_wrapper.type == "inest":
     all_means = load_pickle(pretrained_path, "subtask_means.pkl")
-    selected_means_2_4_6 = [all_means[i] for i in [1,3,5]]  # elements 2,4,6
+    selected_means_2_4_6 = [all_means[i] for i in [1]]  # elements 2,4,6
     kwargs["subtask_means"] = selected_means_2_4_6
     kwargs["distance_scale"] = load_pickle(pretrained_path,
                                            "distance_scale.pkl")
@@ -318,7 +318,7 @@ def wrap_learned_reward(env, config, device):
     
   elif config.reward_wrapper.type == "inest_knn":
     all_means = load_pickle(pretrained_path, "subtask_means.pkl")
-    selected_means_2_4_6 = [all_means[i] for i in [1,3,5]]  # elements 2,4,6
+    selected_means_2_4_6 = [all_means[i] for i in [0,1]]  # elements 2,4,6
     kwargs["subtask_means"] = selected_means_2_4_6
     kwargs["distance_scale"] = load_pickle(pretrained_path,
                                            "distance_scale.pkl")
@@ -326,7 +326,7 @@ def wrap_learned_reward(env, config, device):
     
   elif config.reward_wrapper.type == "state_intrinsic":
     all_means = load_pickle(pretrained_path, "subtask_means.pkl")
-    selected_means_2_4_6 = [all_means[i] for i in [1,3,5]]  # elements 2,4,6
+    selected_means_2_4_6 = [all_means[i] for i in [0,1]]  # elements 2,4,6
     kwargs["subtask_means"] = selected_means_2_4_6
     kwargs["distance_scale"] = load_pickle(pretrained_path,
                                            "distance_scale.pkl")

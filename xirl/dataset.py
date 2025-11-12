@@ -123,8 +123,16 @@ class VideoDataset(Dataset):
       logging.debug("Passed in an empty list. No action taken.")
       return
     to_remove = set(self.class_names) - set(subdirs)
-    for key in to_remove:
-      self._dir_tree.pop(osp.join(self._root_dir, key))
+    # Find the actual keys in _dir_tree that correspond to classes to remove
+    keys_to_remove = []
+    for dir_path in self._dir_tree.keys():
+      dir_stem = str(pathlib.Path(dir_path).stem)
+      if dir_stem in to_remove:
+        keys_to_remove.append(dir_path)
+    
+    # Remove the found keys
+    for key in keys_to_remove:
+      self._dir_tree.pop(key)
     logging.debug("Video classes reduced to %d.", self.num_classes)
 
   def _get_video_path(self, class_idx, vid_idx):
