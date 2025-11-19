@@ -143,10 +143,4 @@ class HOLDRTrainer(Trainer):
         # total_loss = (self.hodlr_loss_weight * holdr_loss)
         total_loss = (self.hodlr_loss_weight * holdr_loss)
 
-        return {
-            "holdr_loss": holdr_loss,
-            "contrastive": contrastive,
-            "distance_subtask_means_loss": distance_subtask_means_loss,
-            "distance_frames_before_subtask_loss": distance_frames_before_subtask_loss,
-            "total_loss": total_loss
-        }
+        return total_loss

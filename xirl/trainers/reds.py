@@ -152,7 +152,7 @@ class REDSRewardTrainer(Trainer):
         texts = []
         for idx, video_path in enumerate(video_names):
             video_number = os.path.basename(video_path)
-            reward_path = os.path.join(video_path, f"{video_number}_sampled_rewards.json")
+            reward_path = os.path.join(video_path, f"{video_number}_rewards.json")
             text_path = os.path.join(video_path, f"{video_number}_text.json")
             with open(reward_path, "r") as f:
                 rewards = torch.tensor(json.load(f), dtype=torch.float32, device=device)

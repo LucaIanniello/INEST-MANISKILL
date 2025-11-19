@@ -200,15 +200,25 @@ def evaluate(policy, env, num_episodes):
     import numpy as np, torch, collections, json, os, logging, wandb
 
     def safe_mean(x):
-        """Compute mean safely for lists or tensors."""
+        """Compute mean safely for scalars, lists, numpy arrays or tensors."""
+        if x is None:
+            return 0.0
+        # If it's already a scalar number
+        if isinstance(x, (int, float, np.number)):
+            return float(x)
+        # Tensors → numpy
         if isinstance(x, torch.Tensor):
             x = x.detach().cpu().numpy()
-        elif isinstance(x, list):
+        # Convert lists/tuples of tensors/numbers to numpy
+        if isinstance(x, (list, tuple)):
             x = [
-                t.detach().cpu().item() if isinstance(t, torch.Tensor) else float(t)
+                (t.detach().cpu().item() if isinstance(t, torch.Tensor) else float(t))
                 for t in x
             ]
-        return float(np.mean(x)) if len(x) > 0 else 0.0
+        arr = np.asarray(x)
+        if arr.size == 0:
+            return 0.0
+        return float(np.nanmean(arr))
 
     episode_rewards = []
     policy.eval()
@@ -272,6 +282,10 @@ def evaluate(policy, env, num_episodes):
         if "eval_score" in info:
             if isinstance(info["eval_score"], torch.Tensor):  ### FIX
                 info["eval_score"] = info["eval_score"].detach().cpu().item()
+            if info["eval_score"] == False:
+                info["eval_score"] = 0.0
+            else:
+                info["eval_score"] = 1.0
             stats["eval_score"].append(info["eval_score"])
             print(f"Episode {i} eval score: {stats['eval_score']}", flush=True)
 
@@ -313,30 +327,32 @@ def evaluate(policy, env, num_episodes):
             except ImportError:
                 pass
 
-    # ---- SAFE MEAN FIX ----
+    # ---- Aggregate stats without losing per-episode lists ----
+    aggregated_stats = {}
     for k, v in stats.items():
         if isinstance(v, torch.Tensor):
             v = v.detach().cpu().numpy()
         elif isinstance(v, list) and len(v) > 0 and isinstance(v[0], torch.Tensor):
-            v = np.array([x.detach().cpu().numpy() for x in v])
-        stats[k] = safe_mean(v)
+            v = [x.detach().cpu().item() for x in v]
+        aggregated_stats[k] = safe_mean(v)
 
-    print(f"Mean Evaluation Score over {num_episodes} episodes: {stats['eval_score']}", flush=True)
+    if 'eval_score' in aggregated_stats:
+        print(f"Mean Evaluation Score over {num_episodes} episodes: {aggregated_stats['eval_score']}", flush=True)
 
     if FLAGS.wandb:
         wandb.log({
-            "eval/mean_episode_reward": safe_mean(episode_rewards),  ### FIX
-            "eval/episode_rewards": [float(r) for r in episode_rewards],  ### FIX
+            "eval/mean_episode_reward": safe_mean(episode_rewards),
+            "eval/episode_rewards": [float(r) for r in episode_rewards],
             "eval/step": i,
         })
-        if "eval_score" in stats:
+        if "eval_score" in aggregated_stats:
             wandb.log({
-                "eval/mean_eval_score": safe_mean(stats["eval_score"]),  ### FIX
+                "eval/mean_eval_score": aggregated_stats["eval_score"],
                 "eval/eval_scores": stats.get("eval_score", []),
                 "eval/step": i,
             })
 
-    return stats, episode_rewards
+    return aggregated_stats, episode_rewards
 
 
 @experiment.pdb_fallback
@@ -356,10 +372,10 @@ def main(_):
   
   if FLAGS.wandb:
     if FLAGS.resume:
-        wandb_id = "2i6fxynk"
-        wandb.init(project="NewEnv", group="Stack_Pyramid_DenseReward_12", name="Stack_Pyramid_DenseReward_12", id=wandb_id, mode="online", resume="must")
+        wandb_id = "mqx6ezio"
+        wandb.init(project="NewEnv", group="Stack_Pyramid_INEST_24", name="Stack_Pyramid_INEST_24", id=wandb_id, mode="online", resume="must")
     else:
-        wandb.init(project="NewEnv", group="Stack_Pyramid_XIRL_24", name="Stack_Pyramid_XIRL_24", mode="online")
+        wandb.init(project="NewEnv", group="Stack_Pyramid_INEST_42", name="Stack_Pyramid_INEST_42", mode="online")
     wandb.config.update(FLAGS, allow_val_change=True)
     wandb.run.log_code(".")
     wandb.config.update(config.to_dict(), allow_val_change=True)

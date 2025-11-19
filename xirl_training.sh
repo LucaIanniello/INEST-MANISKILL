@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=Stack_Cube_42_newlayer_newsetting
+#SBATCH --job-name=stack_pyramid_INEST_24
 #SBATCH --ntasks=1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=s327313@studenti.polito.it
-#SBATCH --output=stack_Cube_42_newlayer_newsetting.log
+#SBATCH --output=stack_pyramid_INEST_24.log
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu_a40
 #SBATCH --cpus-per-task=24
@@ -28,11 +28,11 @@ PORT=$((29000 + SLURM_JOB_ID % 1000))
 # Execution code for INEST-IRL EGOCENTRIC
 # Algo accepted values : 'distance_to_goal', 'goal_classifier', 'inest', 'inest_knn', 'state_intrinsic', 'reds'
 # They must be changed also in rl.py if modified here.
-# python rl_xmagical_learned_reward.py \
-#   --pretrained_path /leonardo/home/userexternal/lianniel/Egocentric_Pretrain/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_EGO_6Subtask\
-#   --seed 12 \
-#   --wandb \
-#   --algo inest
+python rl_xmagical_learned_reward.py \
+  --pretrained_path /home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d \
+  --seed 24\
+  --wandb \
+  --algo inest
 
 # Execution code for INEST-IRL ALLOCENTRIC
 # python rl_xmagical_learned_reward.py \
@@ -41,17 +41,26 @@ PORT=$((29000 + SLURM_JOB_ID % 1000))
 #   --wandb \
 #   --algo inest
 
-python test.py
-
 # Execution code for ENVIRONMENTAL REWARD 
-python rl_xmagical_env_reward.py --embodiment gripper --seeds 1 --wandb
+# python rl_xmagical_env_reward.py  \
+#     --embodiment stackpyramid    \
+#     --seed 12 \
+#     --wandb
 
-# ENV_ID="StackPyramid-v1"
+# Replay trajectory command
+# python -m mani_skill.trajectory.replay_trajectory \
+#   --traj-path /home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/trajectory.h5 \
+#   --record-rewards -o rgb \
+#   --use-env-states \
+#   --save-traj \
+#   --save-video \
+#   --video-fps 30 \
 
-# python -m mani_skill.utils.download_demo ${ENV_ID}
+# Verify embedding quality
+# python test_embedding.py --experiment_path /home/liannello/INEST-MANISKILL_experiments/pretraining/dataset=xmagical_mode=same_algo=xirl_embodiment=stackpyramid_uid=e86f9cd4-6d52-4888-bbbe-9e7c8c22ac5d
 
 # Pretraining command
-# python pretrain_xmagical_same_embodiment.py --embodiment gripper --algo xirl --unique_name --wandb
+# python pretrain_xmagical_same_embodiment.py --embodiment stackpyramid --algo reds --unique_name --wandb
 
 # MULTIGPU TRAINING
 # torchrun --nproc_per_node=2 --rdzv_backend=c10d --rdzv_endpoint=localhost:$PORT rl_xmagical_learned_reward_multi.py --pretrained_path /home/liannello/xirl/experiment_results/Egocentric/dataset=xmagical_mode=same_algo=xirl_embodiment=gripper_EGO_6Subtask --seeds 1 --wandb --name_test Egocentric_6SubtaskXirl_Curriculum_Normal

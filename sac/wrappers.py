@@ -872,7 +872,7 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
     
     def _check_subtask_completion(self, dist, current_reward):
       if self._subtask == 0:
-        if dist > -0.07:#0.02
+        if dist > -0.02:#0.02
             self._subtask_solved_counter += 1
             if self._subtask_solved_counter >= self._subtask_hold_steps:
                 self._subtask = self._subtask + 1
@@ -951,11 +951,11 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
         
             # print(f"WRAPPER- Step:{self.index_seed_step}, reward: {reward}, subtask: {self._subtask}. distance: {dist}")
             
-        # intrinsic_bonus = self._compute_intrinsic_reward(emb)
-        # if self.subtask_switch_step > 0 and (self.index_seed_step - self.subtask_switch_step) < 7:
-        #     reward += (self.increase_intrinsic_scale_after_subtask + self._intrinsic_scale) * intrinsic_bonus
-        # else:
-        #     reward += self._intrinsic_scale * intrinsic_bonus
+        intrinsic_bonus = self._compute_intrinsic_reward(emb)
+        if self.subtask_switch_step > 0 and (self.index_seed_step - self.subtask_switch_step) < 7:
+            reward += (self.increase_intrinsic_scale_after_subtask + self._intrinsic_scale) * intrinsic_bonus
+        else:
+            reward += self._intrinsic_scale * intrinsic_bonus
         return reward
 
     def step(self, action, rank, exp_dir, flag):
@@ -966,6 +966,9 @@ class INESTIRLLearnedVisualReward(LearnedVisualReward):
             info["eval_score"] = 0.0
         else:
             info["eval_score"] = 1.0
+        print(f"Episode Step {self.index_seed_step} Subtask {self._subtask}", flush=True)
+            
+        # print(f"WRAPPER: Step {self.index_seed_step} eval score: {info['eval_score']}", flush=True)
         info["env_reward"] = env_reward
         pixels = self._render_obs()
         learned_reward = self._get_reward_from_image(pixels, flag)

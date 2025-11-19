@@ -4,16 +4,16 @@ from glob import glob
 
 # === CONFIGURATION ===
 root_dirs = [
-    "/home/lianniello/egocentric_dataset/frames/train/gripper",
-    "/home/lianniello/egocentric_dataset/frames/valid/gripper"
+    "/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/frames/train/stackpyramid",
+    "/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/video_dataset/frames/valid/stackpyramid",
 ]
-subtask_file = "/home/lianniello/egocentric_dataset/subgoal_frames.json"
+subtask_file = "/home/liannello/.maniskill/demos/StackPyramid-v1/motionplanning/subtask_frames.json"
 
 # === PHRASES FOR EACH STAGE ===
 phrases = [
-    "The robot moves the red block in the goal zone",
-    "The robot moves the blue block in the goal zone",
-    "The robot moves the yellow block in the goal zone"
+    0,
+    1,
+    2
 ]
 
 # === LOAD SUBTASK SWITCHES ===
@@ -59,7 +59,7 @@ for root in root_dirs:
                 text_array.append(phrases[2])
 
         # Save output in the same video directory
-        output_path = os.path.join(full_path, f"{video_id}_text.json")
+        output_path = os.path.join(full_path, f"{video_id}_rewards.json")
         with open(output_path, 'w') as out_f:
             json.dump(text_array, out_f, indent=2)
 
